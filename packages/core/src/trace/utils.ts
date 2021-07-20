@@ -206,3 +206,29 @@ export async function setCookies(
     }
   }
 }
+
+// adopted from https://github.com/Modernizr/Modernizr/blob/master/test/browser/src/mq.js#L29
+export const enforcePaintEventFn = `
+function enforcePaintEvent() {
+
+  const docElem = document.documentElement;
+  const refNode = docElem.firstElementChild;
+  const fakeBody = document.createElement('body');
+  const div = document.createElement('div');
+
+  div.id = 'mq-test-1';
+  div.style.cssText = 'position:absolute;top:-100em';
+  fakeBody.style.background = 'none';
+  fakeBody.appendChild(div);
+  div.innerHTML = '&shy;<style> #mq-test-1 { width: 42px; }</style>';
+  docElem.insertBefore(fakeBody, refNode);
+
+  try {
+      return div.offsetWidth === 42;
+  } finally {
+      fakeBody.removeChild(div);
+      docElem.removeChild(fakeBody);
+  }
+
+}
+`;

@@ -7,6 +7,7 @@ import { IConditions } from './conditions';
 import {
   createBrowser,
   emulate,
+  enforcePaintEventFn,
   getBrowserArgs,
   getTab,
   setCookies
@@ -103,14 +104,21 @@ export async function recordHARClient(
     // window.performance.getEntries()
     await chrome.send('Page.addScriptToEvaluateOnNewDocument', {
       source: `
+        ${enforcePaintEventFn}
         self.__TBMarkerPromise = new Promise(resolve => {
           const observer = new PerformanceObserver((list) => {
-            if (list.getEntriesByName('${marker}').length > 0) {
-              resolve();
+            if (list.getEntriesByName(${JSON.stringify(marker)}).length > 0) {
+              requestAnimationFrame(() => {
+                enforcePaintEvent();
+                requestIdleCallback(() => {
+                  resolve();
+                });
+              });
+              observer.disconnect();
             }
         });
         observer.observe({ entryTypes: ["mark", "navigation"] });
-        });`
+      });`
     });
     // default is loadEventFired
     await chrome.until('Page.loadEventFired');

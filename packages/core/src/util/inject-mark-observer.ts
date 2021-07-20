@@ -1,6 +1,7 @@
 import { ProtocolConnection } from 'chrome-debugging-client';
 import Protocol from 'devtools-protocol';
 import { RaceCancellation } from 'race-cancellation';
+import { enforcePaintEventFn } from '../trace/utils';
 
 import isNavigationTimingMark from './is-navigation-timing-mark';
 
@@ -25,13 +26,19 @@ export default async function injectMarkObserver(
 
 function markObserver(mark: string, variable: string): string {
   return `"use strict";
+  ${enforcePaintEventFn}
 var ${variable} =
   self === top &&
   opener === null &&
   new Promise((resolve) =>
     new PerformanceObserver((records, observer) => {
       if (records.getEntriesByName(${JSON.stringify(mark)}).length > 0) {
-        resolve();
+        requestAnimationFrame(() => {
+          enforcePaintEvent();
+          requestIdleCallback(() => {
+            resolve();
+          });
+        });
         observer.disconnect();
       }
     }).observe({ type: "mark" })
@@ -40,13 +47,19 @@ var ${variable} =
 
 function navigationObserver(variable: string): string {
   return `"use strict";
+  ${enforcePaintEventFn}
 var ${variable} =
   self === top &&
   opener === null &&
   new Promise((resolve) =>
     new PerformanceObserver((records, observer) => {
       if (records.getEntries().length > 0) {
-        resolve();
+        requestAnimationFrame(() => {
+          enforcePaintEvent();
+          requestIdleCallback(() => {
+            resolve();
+          });
+        });
         observer.disconnect();
       }
     }).observe({ type: "navigation" })
