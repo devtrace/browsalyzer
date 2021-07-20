@@ -3,6 +3,7 @@ import { IConditions, recordHARClient } from "@tracerbench/core";
 import type { Archive } from "@tracerbench/har";
 import { mkdirpSync, readJson, writeFileSync, writeJsonSync } from "fs-extra";
 import { join, resolve } from "path";
+import Protocol from "devtools-protocol";
 
 import { getConfig, TBBaseCommand } from "../../command-config";
 import { headlessFlags } from "../../command-config/default-flag-args";
@@ -52,14 +53,7 @@ export default class RecordHAR extends TBBaseCommand {
       network: network ? network : "none",
       cpu: cpuThrottleRate ? parseInt(cpuThrottleRate as string, 10) : 1,
     };
-    let cookies = [
-      {
-        name: "",
-        value: "",
-        domain: "",
-        path: "",
-      },
-    ];
+    let cookies: Protocol.Network.CookieParam[] = [];
 
     // results folder
     mkdirpSync(resultsDir);
@@ -68,7 +62,20 @@ export default class RecordHAR extends TBBaseCommand {
 
     if (cookiespath.length) {
       // grab the auth cookies
-      cookies = await readJson(resolve(cookiespath));
+      const resolvedPath = resolve(cookiespath);
+      const rawCookies:
+        | Protocol.Network.CookieParam[]
+        | { cookies: Protocol.Network.CookieParam[] } = await readJson(
+        resolvedPath
+      );
+      if (rawCookies && "cookies" in rawCookies) {
+        cookies = rawCookies.cookies as Protocol.Network.CookieParam[];
+      } else {
+        cookies = rawCookies as Protocol.Network.CookieParam[];
+      }
+      if (!Array.isArray(cookies)) {
+        throw `Incorrect cookie file format (${resolvedPath}), should be [ {name: "foo", value: "boo" } ]`;
+      }
     }
 
     // if headless flag is true include the headless flags
